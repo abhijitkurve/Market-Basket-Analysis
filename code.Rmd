@@ -2,7 +2,7 @@
 title: "Association rules"
 author: "Abhijit Kurve"
 date: "March 26, 2018"
-output: html_document
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
@@ -18,9 +18,9 @@ When you click the **Knit** button a document will be generated that includes bo
 ```{r}
 library(dplyr)
 library(ggplot2)
-install.packages('arules')
-install.packages('arulesViz')
-library(arulez)
+#install.packages('arules')
+#install.packages('arulesViz')
+library(arules)
 library(arulesViz)
 library(reshape2)
 library(lubridate)
@@ -78,7 +78,7 @@ basket1 <- data.matrix(basket1)
 basket_txn1 <- as(basket1[,-1], "itemMatrix")
 
 
-rules1 <- apriori(basket_txn, parameter = list(support = 0.1, confidence = 0.5))
+rules1 <- apriori(basket_txn1, parameter = list(support = 0.1, confidence = 0.5))
 rules1 <- sort(rules1, by = "lift", decreasing = TRUE)
 inspect(rules1)
 
