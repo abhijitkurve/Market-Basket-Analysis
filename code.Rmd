@@ -1,0 +1,98 @@
+---
+title: "Association rules"
+author: "Abhijit Kurve"
+date: "March 26, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+library(dplyr)
+library(ggplot2)
+install.packages('arules')
+install.packages('arulesViz')
+library(arulez)
+library(arulesViz)
+library(reshape2)
+library(lubridate)
+```
+
+## Including Plots
+
+```{r pressure, echo=FALSE}
+basket <- read.csv("L:\\projects\\Association rules\\dataset_group.csv", header = FALSE)
+colnames(basket) <- c("Date","user_id","pdt")
+
+basket$Date <- as.Date(basket$Date) 
+
+basket$day <- as.factor(weekdays(basket$Date))
+basket$month <- month(basket$Date, label = T, abbr = T)
+summary(basket)
+str(basket)
+```
+
+
+```{r}
+a <- basket %>% 
+  group_by(Date) %>% 
+  summarize(count_pdt = n(), cust_cnt = n_distinct(user_id))
+ggplot(a) + 
+  geom_bar(aes(x = Date, y = count_pdt), stat = "identity")
+
+b <- basket %>% 
+  group_by(pdt) %>% 
+  summarize(sum_pdt = n()) %>%
+  arrange(desc(sum_pdt))
+  
+ggplot(b[1:5,]) + 
+  geom_bar(aes(x = reorder(pdt, -sum_pdt), y = sum_pdt, fill = pdt), stat = "identity")
+
+c <- basket %>% 
+  group_by(month) %>% 
+  summarize(count_pdt = n(), count_cust = n_distinct(user_id))
+ggplot(c) + 
+  geom_bar(aes(x = reorder(month, -count_cust), y = count_pdt, fill = count_cust), stat = "identity")
+
+d <- basket %>% 
+  group_by(day) %>% 
+  summarise(count_pdt = n(), count_cust = n_distinct(user_id))
+ggplot(d) + 
+  geom_bar(aes(x = reorder(day, -count_cust), y = count_pdt, fill = count_cust), stat = "identity")
+
+```
+
+
+```{r}
+basket1 <- dcast(basket, user_id ~ pdt)
+basket1 <- data.matrix(basket1)
+
+basket_txn1 <- as(basket1[,-1], "itemMatrix")
+
+
+rules1 <- apriori(basket_txn, parameter = list(support = 0.1, confidence = 0.5))
+rules1 <- sort(rules1, by = "lift", decreasing = TRUE)
+inspect(rules1)
+
+inspect(subset(rules1, !(rhs %in% "vegetables")))
+```
+
+```{r}
+basket2 <- dcast(basket, user_id ~ pdt)
+basket2 <- basket2 %>% select(-c(user_id,vegetables)) 
+basket2 <- data.matrix(basket2)
+
+basket_txn2 <- as(basket2, "itemMatrix")
+
+rules2 <- apriori(basket_txn2, parameter = list(support = 0.15, confidence = 0.4))
+rules2 <- sort(rules2, by ="lift", decreasing = TRUE)
+inspect(rules2[10:40])
+```
