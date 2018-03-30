@@ -9,11 +9,6 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
 ```{r}
 #Importing the libraries required for association rules and data exploration
@@ -25,11 +20,7 @@ library(arulesViz)
 library(lubridate)
 ```
 
-## Including Plots
-
 Through this exercise, I want to explore  the items that are bought together. For this analysis, I have used the dataset in "Random Shopping Cart" on Kaggle.
-
-
 
 Let us first load the data, and inspect it observing basic statistics around the dataset.
 I have also added a few features based on the Date of shopping. We will slice and dice the data using these features ahead. 
@@ -92,13 +83,11 @@ ggplot(b1) +
 ```
 In this graph, I have plotted the sum of all products sold on the Y-Axis, across months on the X-Axis. I have also filled the columns indicating the count of customers, lightest color indicating the maximum number of customers, and darkest color indicating the least number of customers.
 
-
 Obviously, there is no data for October, November and December, so we see no columns for those months in the data. We also observed that the number of customers are reducing as you go further ahead in the year, which is more or less corroborated by the graph. 
 Also, We have the 2002 data for Jan and Feb, so they end up having more number of customers.
-To account for this, I subset my data for all dates before January 1, 2002, giving a more distributed graph of the number of products sold by month. 
+To account for this, I subset my data for all dates before January 1, 2002, giving a more distributed graph of the number of products sold by month. Now we see that January and February has moved back in the line, and March reins supreme in both the number of customers and the number of products! Intuitively, makes sense since more the customers, more the products sold.
 
-
-On a more granular level, lets look at how the customers and products fare across days of the week. 
+Getting a bit more granular, lets look at how the customers and products fare across days of the week. Intuitively, I would think people do their grocery shopping on saturdays and sundays. Mondays would be the least favourite day for going to the supermarket and getting vegetables.
 ```{r}
 d <- basket %>% 
   group_by(Day) %>% 
@@ -108,6 +97,8 @@ ggplot(d) +
 
 
 ```
+Surprisingly, the reality not so. Tuesdays see the most number of customers in the store, followed by saturdays. Saturdays also see the most products sold out of all days of the week. Mondays are the worst, in terms of both the number of customers and number of products sold. No surprises there!
+
 
 Let us explore how the data looks across products.
 ```{r}
@@ -133,12 +124,16 @@ Vegetables is the clear winner, being bought by most customers across all the mo
 
 
 
+Applying apriori analysis
+The Apriori Algorithm is an influential algorithm for mining frequent itemsets for boolean association rules.
+Apriori uses a "bottom up" approach, where frequent subsets are extended one item at a time (a step known as candidate generation, and groups of candidates are tested against the data).
 
-```{r}
+You can play with the required support and confidence, and sort the rules by decreasing order of lift.
+Confidence calculates how strong an association is. It is the conditional probability of purchasing RHS if one has purchased LHS. It is calculated by by P(LHS U RHS)/P(LHS). This reprsents the probability of having RHS in the market basket, given the presence of LHS in the basket already.
 
-```
+The support of an item or item set is the fraction of transactions in our data set that contain that item or item set. It is the probability of finding an itemset in all the transactions. It is calculated using [count(itemset)/total transactions].
 
-
+The lift value of an association rule is the ratio of the confidence of the rule and the expected confidence of the rule. It is the probability of finding certain itemsets toegther in a transaction, compared to the probability of finding them individually.
 ```{r}
 basket1 <- dcast(basket, User ~ Product)
 basket1 <- data.matrix(basket1)
@@ -150,9 +145,18 @@ rules1 <- apriori(basket_txn1, parameter = list(support = 0.1, confidence = 0.5)
 rules1 <- sort(rules1, by = "lift", decreasing = TRUE)
 inspect(rules1)
 
-inspect(subset(rules1, !(rhs %in% "vegetables")))
+rules1_1 <- subset(rules1, !(rhs %in% "vegetables"))
+inspect(rules1_1)
+
+plot(rules1, method="graph", shading = NA)
+plot(rules1, method="scatter", shading = "lift")
+
+plot(rules1_1, method="graph", shading = NA)
+plot(rules1_1, method="scatter", shading = "lift")
 ```
 
+
+Vegetables seems to be present in too many baskets, and seems to be messing with my analysis. So, I will subset my data and remove vegetables from it to see what else I can find. 
 ```{r}
 basket2 <- dcast(basket, User ~ Product)
 basket2 <- basket2 %>% select(-c(User,vegetables)) 
@@ -160,7 +164,12 @@ basket2 <- data.matrix(basket2)
 
 basket_txn2 <- as(basket2, "itemMatrix")
 
-rules2 <- apriori(basket_txn2, parameter = list(support = 0.15, confidence = 0.4))
-rules2 <- sort(rules2, by ="lift", decreasing = TRUE)
-inspect(rules2[1:10])
+rules2 <- apriori(basket_txn2, parameter = list(support = 0.1, confidence = 0.5))
+rules2 <- sort(rules2, by = "lift", decreasing = TRUE)
+inspect(rules2)
+
+plot(rules2, method = "graph", shading = NA)
 ```
+Not much it seems!
+
+
