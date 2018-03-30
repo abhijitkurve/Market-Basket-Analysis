@@ -16,63 +16,131 @@ This is an R Markdown document. Markdown is a simple formatting syntax for autho
 When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
 ```{r}
+#Importing the libraries required for association rules and data exploration
 library(dplyr)
 library(ggplot2)
-#install.packages('arules')
-#install.packages('arulesViz')
+library(reshape2)
 library(arules)
 library(arulesViz)
-library(reshape2)
 library(lubridate)
 ```
 
 ## Including Plots
 
+Through this exercise, I want to explore  the items that are bought together. For this analysis, I have used the dataset in "Random Shopping Cart" on Kaggle.
+
+
+
+Let us first load the data, and inspect it observing basic statistics around the dataset.
+I have also added a few features based on the Date of shopping. We will slice and dice the data using these features ahead. 
 ```{r pressure, echo=FALSE}
-basket <- read.csv("L:\\projects\\Association rules\\dataset_group.csv", header = FALSE)
-colnames(basket) <- c("Date","user_id","pdt")
+#Loading data
+basket <- read.csv("dataset_group.csv", header = FALSE)
 
-basket$Date <- as.Date(basket$Date) 
+#Renaming columns to make some sense!
+colnames(basket) <- c("Date","User","Product")
 
-basket$day <- as.factor(weekdays(basket$Date))
-basket$month <- month(basket$Date, label = T, abbr = T)
+
+#Converting date to the appropriate date format infered from the data
+basket$Date <- as.Date(basket$Date, format = "%Y-%m-%d")
+
+#Extracting day of the week and month of the year information from date column
+basket$Day <- as.factor(weekdays(basket$Date))
+basket$Month <- as.factor(month(basket$Date, label = T, abbr = T))
+
+#Examining the data and obeserving basic statistical and type information
 summary(basket)
 str(basket)
+
+summary(basket$Month)
 ```
+Observing the summary, we see that there are 38 different Products in our dataset.
+The count days is more or less uniformly distributed across all days of the week, except for Mondays which have a lower count. I hypothesize that this is due to Monday blues. Whoever shops on Mondays?!?
+From the summary, what stands out is that the count of records is decreasing as we progress through the year. To inspect further, I summarized the months columns and I found that there is no data for months of October, November and December. 
 
-
+Let us explore the data a bit further by visualizing it! 
 ```{r}
 a <- basket %>% 
   group_by(Date) %>% 
-  summarize(count_pdt = n(), cust_cnt = n_distinct(user_id))
+  summarize(count_pdt = n(), cust_cnt = n_distinct(User))
 ggplot(a) + 
   geom_bar(aes(x = Date, y = count_pdt), stat = "identity")
 
+```
+As seen before in the summary, there is no data for 3 months, which is the gap we see in the graph. Other than that, there is nothing we can conclusively say from this graph.
+
+Looking further, I wanted to see if there was a pattern in the customers who visited the store by months, and also plot the total number of products they bought in each month over all the data we have. 
+```{r}
 b <- basket %>% 
-  group_by(pdt) %>% 
+  group_by(Month) %>% 
+  summarize(count_pdt = n(), count_cust = n_distinct(User))
+ggplot(b) + 
+  geom_bar(aes(x = reorder(Month, -count_cust), y = count_pdt, fill = count_cust), stat = "identity") +
+  xlab("Count of Customers") +
+  ylab("Sum of Products")
+
+
+b1 <- basket %>%
+  filter(Date < "2002-01-01") %>%
+  group_by(Month) %>% 
+  summarize(count_pdt = n(), count_cust = n_distinct(User))
+ggplot(b1) + 
+  geom_bar(aes(x = reorder(Month, -count_cust), y = count_pdt, fill = count_cust), stat = "identity") +
+  xlab("Count of Customers") +
+  ylab("Sum of Products")
+
+```
+In this graph, I have plotted the sum of all products sold on the Y-Axis, across months on the X-Axis. I have also filled the columns indicating the count of customers, lightest color indicating the maximum number of customers, and darkest color indicating the least number of customers.
+
+
+Obviously, there is no data for October, November and December, so we see no columns for those months in the data. We also observed that the number of customers are reducing as you go further ahead in the year, which is more or less corroborated by the graph. 
+Also, We have the 2002 data for Jan and Feb, so they end up having more number of customers.
+To account for this, I subset my data for all dates before January 1, 2002, giving a more distributed graph of the number of products sold by month. 
+
+
+On a more granular level, lets look at how the customers and products fare across days of the week. 
+```{r}
+d <- basket %>% 
+  group_by(Day) %>% 
+  summarise(count_pdt = n(), count_cust = n_distinct(User))
+ggplot(d) + 
+  geom_bar(aes(x = reorder(Day, -count_cust), y = count_pdt, fill = count_cust), stat = "identity")
+
+
+```
+
+Let us explore how the data looks across products.
+```{r}
+d <- basket %>% 
+  group_by(Product) %>% 
   summarize(sum_pdt = n()) %>%
   arrange(desc(sum_pdt))
   
-ggplot(b[1:5,]) + 
-  geom_bar(aes(x = reorder(pdt, -sum_pdt), y = sum_pdt, fill = pdt), stat = "identity")
-
-c <- basket %>% 
-  group_by(month) %>% 
-  summarize(count_pdt = n(), count_cust = n_distinct(user_id))
-ggplot(c) + 
-  geom_bar(aes(x = reorder(month, -count_cust), y = count_pdt, fill = count_cust), stat = "identity")
-
-d <- basket %>% 
-  group_by(day) %>% 
-  summarise(count_pdt = n(), count_cust = n_distinct(user_id))
 ggplot(d) + 
-  geom_bar(aes(x = reorder(day, -count_cust), y = count_pdt, fill = count_cust), stat = "identity")
+  geom_bar(aes(x = reorder(Product, -sum_pdt), y = sum_pdt, fill = Product), stat = "identity") +
+  xlab("Product") +
+  ylab("Sum of Products")
+
+
+ggplot(d[1:5,]) + 
+  geom_bar(aes(x = reorder(Product, -sum_pdt), y = sum_pdt, fill = Product), stat = "identity") +
+  xlab("Product") +
+  ylab("Sum of Products")
+
+```
+As you can see in the first graph, it is just cumbersome to see all the products on the graph. So I subset for just the top 5 products. 
+Vegetables is the clear winner, being bought by most customers across all the months.
+
+
+
+
+```{r}
 
 ```
 
 
 ```{r}
-basket1 <- dcast(basket, user_id ~ pdt)
+basket1 <- dcast(basket, User ~ Product)
 basket1 <- data.matrix(basket1)
 
 basket_txn1 <- as(basket1[,-1], "itemMatrix")
@@ -86,13 +154,13 @@ inspect(subset(rules1, !(rhs %in% "vegetables")))
 ```
 
 ```{r}
-basket2 <- dcast(basket, user_id ~ pdt)
-basket2 <- basket2 %>% select(-c(user_id,vegetables)) 
+basket2 <- dcast(basket, User ~ Product)
+basket2 <- basket2 %>% select(-c(User,vegetables)) 
 basket2 <- data.matrix(basket2)
 
 basket_txn2 <- as(basket2, "itemMatrix")
 
 rules2 <- apriori(basket_txn2, parameter = list(support = 0.15, confidence = 0.4))
 rules2 <- sort(rules2, by ="lift", decreasing = TRUE)
-inspect(rules2[10:40])
+inspect(rules2[1:10])
 ```
